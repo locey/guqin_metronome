@@ -8,218 +8,229 @@
 * This project is licensed under the MIT License (see the LICENSE.md for details)
 */
 
-	// Defaults
-	window.AudioContext = window.AudioContext || window.webkitAudioContext;
-	var context = new AudioContext();
-	var timer, noteCount, counting, _interval = null;
-	var curTime = 0.0;
+// Defaults
+window.AudioContext = window.AudioContext || window.webkitAudioContext;
+var context = null; // 将 AudioContext 初始化为 null
+var timer, noteCount, counting, _interval = null;
+var curTime = 0.0;
 
-	// Onload: Show beats
-	$("document").ready(function() {
-		showBeats();
-	});
+// 在用户点击页面的时候启动 AudioContext
+document.addEventListener('click', function() {
+    // 检查是否已经存在 AudioContext，如果没有则创建一个
+    if (!context) {
+        context = new AudioContext();
+    }
 
-	//Scheduler
-	function schedule() {
-		while(curTime < context.currentTime + 0.1) {
-			playNote(curTime);
-			updateTime();
-		}
-		timer = window.setTimeout(schedule, 0.1);
-	}
+    // 现在可以启动 AudioContext
+    context.resume().then(function() {
+        console.log('AudioContext 已经启动');
+        // 在这里继续您的代码逻辑，包括调用 schedule() 或其他音频操作
+    }).catch(function(err) {
+        console.error('无法启动 AudioContext: ' + err);
+    });
+});
 
-	// BPM to Time
-	function updateTime() {
-		curTime += seconds_perbeat();
-		noteCount++;
-	}
+// 当页面加载完成后执行，显示节拍
+$("document").ready(function() {
 
-	// Seconds per beat
-	function seconds_perbeat() {
-		var current_tempo = parseInt($(".bpm-input").val(), 10);
+    showBeats();
+});
 
-		// Min/Max Put Limits
-		if(current_tempo < 40) {
-			current_tempo = 40;
-			$(".bpm-input").val(current_tempo);
-		} else if(current_tempo > 210) {
-			current_tempo = 210;
-			$(".bpm-input").val(current_tempo);
-		}
+// 调度器，用于精确地定时播放节拍声音
+function schedule() {
+    while (curTime < context.currentTime + 0.1) {
+        playNote(curTime);
+        updateTime();
+    }
+    timer = window.setTimeout(schedule, 0.1);
+}
 
-		var adjust_weight = current_tempo - 35;
+// 将BPM（每分钟拍数）转换为时间
+function updateTime() {
+    curTime += seconds_perbeat();
+    noteCount++;
+}
 
-		$( "<style>.swinging_pendulum:before { margin-top: " + adjust_weight + "px; }</style>" ).appendTo( "head" );
+// 计算每个拍子的时间间隔
+function seconds_perbeat() {
+    var current_tempo = parseInt($(".bpm-input").val(), 10);
 
-		var spb = 60 / current_tempo;
+    // 限制最小和最大的BPM值
+    if (current_tempo < 40) {
+        current_tempo = 40;
+        $(".bpm-input").val(current_tempo);
+    } else if (current_tempo > 210) {
+        current_tempo = 210;
+        $(".bpm-input").val(current_tempo);
+    }
 
-		return spb;
-	}
+    var adjust_weight = current_tempo - 35;
 
-	// Play note on a delayed interval of t
-	function playNote(t) {
-		var note = context.createOscillator();
+    // 动态调整CSS样式以模拟钟摆效果
+    $("<style>.swinging_pendulum:before { margin-top: " + adjust_weight + "px; }</style>").appendTo("head");
 
-		if(noteCount == parseInt($(".new_beats").val(), 10) )
-			noteCount = 0;
+    var spb = 60 / current_tempo; // 计算每个拍子的时间间隔（秒）
 
-		if( $(".beatcount .beat").eq(noteCount).hasClass("active") ) {
-			note.frequency.value = 380;
-			var bgcolor = "19FA65";
-			var first_beat = true;
-		} else {
-			note.frequency.value = 200;
-			var bgcolor = "01C0F1";
-		}
+    return spb;
+}
 
-		note.connect(context.destination);
+// 在延迟时间t后播放音符
+function playNote(t) {
+    var note = context.createOscillator();
 
-		note.start(t);
-		note.stop(t + 0.05);
+    if (noteCount == parseInt($(".new_beats").val(), 10))
+        noteCount = 0;
 
-		$(".beatcount .beat").attr("style", "");
+    if ($(".beatcount .beat").eq(noteCount).hasClass("active")) {
+        note.frequency.value = 380;
+        var bgcolor = "19FA65";
+    } else {
+        note.frequency.value = 200;
+        var bgcolor = "01C0F1";
+    }
 
-		$(".beatcount .beat").eq(noteCount).css({
-			background: "#" + bgcolor
-		});
+    note.connect(context.destination);
 
-		$(".current_beat").text(noteCount+1);
+    note.start(t);
+    note.stop(t + 0.05);
 
-	}
+    $(".beatcount .beat").attr("style", "");
 
-	// Pendulum
-	pendulum_speed();
+    $(".beatcount .beat").eq(noteCount).css({
+        background: "#" + bgcolor
+    });
 
-	function pendulum_speed() {
-		var duration = seconds_perbeat() + 's';
+    $(".current_beat").text(noteCount + 1);
+}
 
-		$('.swinging_pendulum').css({
-			'-webkit-animation-duration': duration,
-			'-moz-animation-duration': duration,
-			'-o-animation-duration': duration,
-			'animation-duration': duration
-		});
-	}
+// 调整钟摆速度
+pendulum_speed();
 
-	// Increase or decrease Tempo
-	$(".slow-down, .speed-up").click(function() {
-		if($(this).hasClass("slow-down"))
-			$(".bpm-input").val(parseInt($(".bpm-input").val(), 10) - 1 );
-		else
-			$(".bpm-input").val(parseInt($(".bpm-input").val(), 10) + 1 );
+function pendulum_speed() {
+    var duration = seconds_perbeat() + 's';
 
-		$(this).blur();
+    $('.swinging_pendulum').css({
+        '-webkit-animation-duration': duration,
+        '-moz-animation-duration': duration,
+        '-o-animation-duration': duration,
+        'animation-duration': duration
+    });
+}
 
-		pendulum_speed();
-	});
+// 增加或减少拍子的BPM
+$(".slow-down, .speed-up").click(function() {
+    if ($(this).hasClass("slow-down"))
+        $(".bpm-input").val(parseInt($(".bpm-input").val(), 10) - 1);
+    else
+        $(".bpm-input").val(parseInt($(".bpm-input").val(), 10) + 1);
 
-	// Allow keyboard controls
-	$(document).on('keydown', function(e) {
-		var amount = 1;
+    $(this).blur();
 
-		if (e.shiftKey)
-			amount = 10;
+    pendulum_speed();
+});
 
-		if (e.keyCode == 107 || e.keyCode == 39) { // + or ->
-			$(".bpm-input").val(parseInt($(".bpm-input").val(), 10) + amount );
-			pendulum_speed();
-		} else if (e.keyCode == 109 || e.keyCode == 37) { // - or <-
-			$(".bpm-input").val(parseInt($(".bpm-input").val(), 10) - amount );
-			pendulum_speed();
-		} else if (e.keyCode == 32) { // spacebar
-			metronome_switch();
-		} else if (e.keyCode == 13) { // enter
-			if(!$('.swinging_pendulum').hasClass('animate_pendulum'))
-				metronome_on();
-		} else if (e.keyCode == 27) { // escape
-			metronome_off();
-		}
-	});
+// 允许使用键盘控制
+$(document).on('keydown', function(e) {
+    var amount = 1;
 
-	// Start/Stop
-	$("#metronome_switcher").on( "click", function() {
-		metronome_switch();
-	});
+    if (e.shiftKey)
+        amount = 10;
 
-	// Switcher
-	function metronome_switch( ) {
+    if (e.keyCode == 107 || e.keyCode == 39) { // + 或者 ->
+        $(".bpm-input").val(parseInt($(".bpm-input").val(), 10) + amount);
+        pendulum_speed();
+    } else if (e.keyCode == 109 || e.keyCode == 37) { // - 或者 <-
+        $(".bpm-input").val(parseInt($(".bpm-input").val(), 10) - amount);
+        pendulum_speed();
+    } else if (e.keyCode == 32) { // 空格键
+        metronome_switch();
+    } else if (e.keyCode == 13) { // 回车键
+        if (!$('.swinging_pendulum').hasClass('animate_pendulum'))
+            metronome_on();
+    } else if (e.keyCode == 27) { // Escape键
+        metronome_off();
+    }
+});
 
-		if($('.swinging_pendulum').hasClass('animate_pendulum'))
-			metronome_off();
-		else
-			metronome_on();
+// 启动/停止节拍器
+$("#metronome_switcher").on("click", function() {
+    metronome_switch();
+});
 
-	}
+// 切换节拍器的状态
+function metronome_switch() {
+    if ($('.swinging_pendulum').hasClass('animate_pendulum'))
+        metronome_off();
+    else
+        metronome_on();
+}
 
-	// Switch on
-	function metronome_on() {
-		curTime = context.currentTime;
-		noteCount = parseInt($(".new_beats").val(), 10);
-		schedule();
+// 启动节拍器
+function metronome_on() {
+    curTime = context.currentTime;
+    noteCount = parseInt($(".new_beats").val(), 10);
+    schedule();
 
-		$("#metronome_switcher").prop( "checked", true );
+    $("#metronome_switcher").prop("checked", true);
 
-		// Pendulum Stuff
-		$('.swinging_pendulum').addClass('animate_pendulum');
-		_interval = setInterval(function() {}, seconds_perbeat() * 1000);
-	}
+    // 钟摆动画
+    $('.swinging_pendulum').addClass('animate_pendulum');
+    _interval = setInterval(function() {}, seconds_perbeat() * 1000);
+}
 
-	// Switch off
-	function metronome_off() {
-		counting = false;
-		window.clearInterval(timer);
+// 停止节拍器
+function metronome_off() {
+    counting = false;
+    window.clearInterval(timer);
 
-		$("#metronome_switcher").prop( "checked", false );
-		$(".beatcount .beat").attr("style", "");
-		$(".current_beat").empty();
+    $("#metronome_switcher").prop("checked", false);
+    $(".beatcount .beat").attr("style", "");
+    $(".current_beat").empty();
 
-		// Pendulum Stuff
-		$('.swinging_pendulum').removeClass('animate_pendulum');
-		clearInterval(_interval);
-		_interval = null;
-	}
+    // 钟摆动画
+    $('.swinging_pendulum').removeClass('animate_pendulum');
+    clearInterval(_interval);
+    _interval = null;
+}
 
-	// Beats per measure
-	$(document).mouseup(function (e) {
-		var ts = $(".per_measure");
+// 每拍的数量
+$(document).mouseup(function(e) {
+    var ts = $(".per_measure");
 
-		if ( $(e.target).is('.n_beats_change') || (ts.is(":visible") && !ts.is(e.target) && ts.has(e.target).length === 0) )
-			ts.toggle(200);
-	});
+    if ($(e.target).is('.n_beats_change') || (ts.is(":visible") && !ts.is(e.target) && ts.has(e.target).length === 0))
+        ts.toggle(200);
+});
 
-	// Show beats using dots
-	function showBeats() {
+// 根据新的拍子数量显示节拍
+function showBeats() {
+    for (var i = 0; i < $(".new_beats").val(); i++) {
+        var temp = document.createElement("div");
+        temp.className = "beat";
 
-		for(var i = 0; i < $(".new_beats").val(); i++) {
-			var temp = document.createElement("div");
-			temp.className = "beat";
+        if (i === 0)
+            temp.className += " active";
 
-			if(i === 0)
-				temp.className += " active";
+        $(".beatcount").append(temp);
+    }
+}
 
-			$(".beatcount").append( temp );
-		}
-	}
+// 启用/禁用强调拍子
+$(document).on("click", ".beatcount .beat", function() {
+    $(this).toggleClass("active");
+});
 
-	// Enable accents
-	$(document).on("click", ".beatcount .beat", function() {
-		$(this).toggleClass("active");
-	});
+// 当拍子数量改变时添加/移除点
+$(".new_beats").on("change", function() {
+    var _counter = $(".beatcount");
+    _counter.html("");
 
+    var time_sig = $(".new_beats").val();
 
-	// Add/remove dots when number of beats per measure changes
-	$(".new_beats").on("change", function() {
-		var _counter = $(".beatcount");
-		_counter.html("");
+    if (time_sig < noteCount)
+        noteCount = 0;
 
-		//var time_sig = parseInt($(".new_beats option:selected").val(), 10);
-		var time_sig = $(".new_beats").val();
+    showBeats();
 
-		if(time_sig < noteCount)
-			noteCount = 0;
-
-		showBeats();
-
-		if( $(".per_measure").is(":visible") )
-			$(".per_measure").toggle(200);
-	});
+    if ($(".per_measure").is(":visible"))
+        $(".per_measure").toggle(200);
+});
